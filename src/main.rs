@@ -4,6 +4,7 @@ pub mod pci;
 use uio::*;
 use accessor::mapper::Mapper;
 use std::num::NonZeroUsize;
+use log::info;
 
 /// uioでは、ユーザー空間で実行するため、
 /// 物理アドレスと仮想アドレスの変換はいらない？
@@ -18,6 +19,9 @@ impl Mapper for MemoryMapper {
 }
 
 pub fn main() {
+    std::env::set_var("RUST_LOG", "debug");
+    env_logger::init();
+
     let uio_num = 0; // /dev/uio0
     let mut dev = UioPciDevice::new(uio_num).unwrap();
     println!("name: {}", dev.get_name().unwrap());
@@ -29,11 +33,34 @@ pub fn main() {
 
     let mapper = MemoryMapper;
     let xhci_regs = unsafe { xhci::Registers::new(p as usize, mapper) };
-    println!("{:?}", xhci_regs.capability.caplength.read_volatile());
-    println!("{:?}", xhci_regs.capability.hccparams1.read_volatile());
-    println!("{:?}", xhci_regs.capability.dboff.read_volatile());
-    let usbsts = xhci_regs.operational.usbsts.read_volatile();
-    println!("usbsts: {:?}", usbsts);
+    let mut opt = xhci_regs.operational;
+    let cap = xhci_regs.capability;
+
+    // ここからxhciの初期化を始めていく
+    println!("[*] start initializing xhc");
+    if !opt.usbsts.read_volatile().hc_halted() { 
+        eprintln!("xHC is not halted.");
+        // リセットの開始
+        opt.usbcmd.update_volatile(|regs| { regs.clear_run_stop(); });
+    }
+    // 停止するまで待つ
+    while !opt.usbsts.read_volatile().hc_halted() {}
+
+    // リセット処理を開始
+    println!("usbcmd.reset: {}", opt.usbcmd.read_volatile().host_controller_reset());
+    opt.usbcmd.update_volatile(|regs| { regs.set_host_controller_reset(); });
+    while opt.usbcmd.read_volatile().host_controller_reset() {
+        println!("xHC is resetting.");
+    }
+    println!("xHC is reset.");
+    // レジスタへの書き込みが許可されるまで待つ
+    while opt.usbsts.read_volatile().controller_not_ready() {
+        println!("xHC is not writable yet.");
+    }
+    info!("max ports: {}", cap.hcsparams1.read_volatile().number_of_ports());
+    info!("max device slots: {}", cap.hcsparams1.read_volatile().number_of_device_slots());
+    info!("max interrupters: {}", cap.hcsparams1.read_volatile().number_of_interrupts());
+
 }
 
 fn dump(p: *mut u8, n: usize)
