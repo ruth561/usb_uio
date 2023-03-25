@@ -14,7 +14,7 @@ pub struct PciConfigSpace {
 }
 
 /// bytes列で渡されたPci Config Spaceをダンプする関数
-pub fn dump(buf: &[u8])
+pub fn pci_dump(buf: &[u8])
 {
     let config = unsafe { (buf.as_ptr() as *const PciConfigSpace).as_ref().unwrap() };
     println!("vendor_id: {:#04x}", config.vendor_id);
