@@ -1,10 +1,13 @@
 pub mod helper;
 pub mod uio;
 pub mod pci;
+pub mod defs;
+
 use uio::*;
 use accessor::mapper::Mapper;
 use std::num::NonZeroUsize;
 use log::info;
+use defs::*;
 
 /// uioでは、ユーザー空間で実行するため、
 /// 物理アドレスと仮想アドレスの変換はいらない？
@@ -61,6 +64,21 @@ pub fn main() {
     info!("max device slots: {}", cap.hcsparams1.read_volatile().number_of_device_slots());
     info!("max interrupters: {}", cap.hcsparams1.read_volatile().number_of_interrupts());
 
+    // デバイスの最大数を決め、DCBAAを設定（したい）
+    let dev_size = cap.hcsparams1.read_volatile().number_of_device_slots();
+    opt.config.update_volatile(|regs| { regs.set_max_device_slots_enabled(dev_size); });
+    let dcbaa = DeviceContextBaseAddressArray::new();
+    opt.dcbaap.update_volatile(|p| { 
+        p.set(dcbaa.raw_ptr()) });
+    println!("dcbaap: {:#016x}", opt.dcbaap.read_volatile().get());
+
+    // コマンドリングの設定とCRCRレジスタへの書き込み
+
+    // 割り込みの設定（MSI）
+
+    // xHCをrun状態へ遷移
+
+    // 初期化完了！NoOpCommandで確認。
 }
 
 fn dump(p: *mut u8, n: usize)
