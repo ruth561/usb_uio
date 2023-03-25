@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 libc = "0.2.140"
 nix = "0.26.2"
+xhci = "0.9.1"
+accessor = "0.3.3"
