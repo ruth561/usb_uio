@@ -1,9 +1,8 @@
 use crate::helper::DynError;
 use std::{
     io::{BufReader, Read}, 
-    fs::{
-        File,
-    }, vec,
+    fs::File,
+    vec,
 };
 
 pub struct UioPciDevice {
@@ -11,7 +10,6 @@ pub struct UioPciDevice {
     dev_file: File, // /dev/uioX形式のファイル
     pci_config_file: File, // pci configuration spaceのファイル
 }
-
 
 impl UioPciDevice {
     pub fn new(uio_num: usize) -> Result<UioPciDevice, DynError> {
@@ -22,16 +20,14 @@ impl UioPciDevice {
         })
     }
 
-    pub fn read_pci(&mut self) -> Result<(), DynError>
+    pub fn read_pci(&mut self) -> Result<Vec<u8>, DynError>
     {
         let mut buf = vec![];
         let mut reader = BufReader::new(&mut self.pci_config_file);
         reader.read_to_end(&mut buf)?;
         dump(&buf);
-        Ok(())
+        Ok(buf)
     }
-
-
 }
 
 /// bytes型をダンプするmisc関数
