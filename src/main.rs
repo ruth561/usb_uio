@@ -1,13 +1,19 @@
 pub mod helper;
 pub mod uio;
 pub mod pci;
-pub mod defs;
+pub mod context;
+pub mod ring;
 
 use uio::*;
 use accessor::mapper::Mapper;
 use std::num::NonZeroUsize;
 use log::info;
-use defs::*;
+use context::*;
+use xhci::ring::trb::command::{
+    Noop,
+    Allowed,
+};
+use crate::ring::CommandRing;
 
 /// uioでは、ユーザー空間で実行するため、
 /// 物理アドレスと仮想アドレスの変換はいらない？
@@ -73,6 +79,17 @@ pub fn main() {
     println!("dcbaap: {:#016x}", opt.dcbaap.read_volatile().get());
 
     // コマンドリングの設定とCRCRレジスタへの書き込み
+    let mut cr = CommandRing::new();
+    info!("command ring: {:#016x}", cr.raw_ptr());
+    cr.push(Allowed::Noop(Noop::new()));
+    cr.push(Allowed::Noop(Noop::new()));
+    cr.push(Allowed::Noop(Noop::new()));
+    cr.push(Allowed::Noop(Noop::new()));
+    cr.push(Allowed::Noop(Noop::new()));
+    opt.crcr.update_volatile(|reg| {
+        reg.set_ring_cycle_state();
+        reg.set_command_ring_pointer(cr.raw_ptr());
+    })
 
     // 割り込みの設定（MSI）
 
